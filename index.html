@@ -111,10 +111,10 @@ body{font-family:'Kode Mono',monospace;font-weight:700;color:var(--fg);backgroun
 .prow{display:flex;align-items:center;gap:3px;margin-bottom:5px;min-width:0}
 .prow:last-child{margin-bottom:0}
 .pname{font-size:6px;letter-spacing:0;color:var(--fg2);width:30px;min-width:30px;flex-shrink:0;font-weight:700}
-input[type=range]{-webkit-appearance:none;appearance:none;flex:1;height:28px;background:transparent;outline:none;cursor:pointer;min-width:0;width:0}
-input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:10px;height:28px;background:var(--fg);cursor:pointer;margin-top:-12px}
+input[type=range]{-webkit-appearance:none;appearance:none;flex:1;height:18px;background:transparent;outline:none;cursor:pointer;min-width:0;width:0;padding:8px 0;box-sizing:content-box;touch-action:pan-x}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:8px;height:18px;background:var(--fg);cursor:pointer;margin-top:-7px}
 input[type=range]::-webkit-slider-runnable-track{height:3px;background:var(--border);border-radius:0}
-input[type=range]::-moz-range-thumb{width:10px;height:28px;background:var(--fg);border:none;cursor:pointer}
+input[type=range]::-moz-range-thumb{width:8px;height:18px;background:var(--fg);border:none;cursor:pointer}
 input[type=range]::-moz-range-track{height:3px;background:var(--border)}
 .pval{font-size:6px;color:var(--fg);width:26px;min-width:26px;text-align:right;flex-shrink:0;letter-spacing:0}
 .col2{display:grid;grid-template-columns:1fr 1fr;gap:5px;margin-bottom:6px}
@@ -614,14 +614,13 @@ function setSource(s){
 document.getElementById('file-input').addEventListener('change',async e=>{
   const f=e.target.files[0];if(!f)return;
   document.getElementById('fname').textContent=f.name;
-  log('FILE: LOADING...');
   const ctx=getActx();
   try{
+    if(ctx.state==='suspended') await ctx.resume();
     audioBuffer=await ctx.decodeAudioData(await f.arrayBuffer());
     bufferOffset=0;
-    log('FILE: READY');
     startFileLoop();
-  }catch(err){log('FILE: DECODE ERROR');}
+  }catch(err){console.error('File decode error:',err);}
 });
 
 // Continuous audio loop for file playback preview + playhead
@@ -1040,11 +1039,12 @@ document.getElementById('dejavu').addEventListener('input',function(){
   document.getElementById('x-lock').value=v;
 });
 
-// ── LOG ──
+// ── LOG (silent if element removed) ──
 let logLines=[];
 function log(msg){
   logLines.push(msg);if(logLines.length>4)logLines.shift();
-  document.getElementById('logEl').innerHTML=logLines.map((l,i)=>i===logLines.length-1?`<span>${l}</span>`:l).join('<br>');
+  const el=document.getElementById('logEl');
+  if(el) el.innerHTML=logLines.map((l,i)=>i===logLines.length-1?`<span>${l}</span>`:l).join('<br>');
 }
 
 // ─── PIANO ───
