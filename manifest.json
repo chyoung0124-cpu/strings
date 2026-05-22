@@ -1,0 +1,22 @@
+{
+  "name": "STRINGS",
+  "short_name": "STRINGS",
+  "description": "Karplus-Strong Marbles Sequencer",
+  "start_url": "/strings/",
+  "display": "standalone",
+  "background_color": "#28241e",
+  "theme_color": "#28241e",
+  "orientation": "any",
+  "icons": [
+    {
+      "src": "icon.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "icon.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
