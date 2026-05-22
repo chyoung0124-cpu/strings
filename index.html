@@ -66,12 +66,13 @@ body{font-family:'Kode Mono',monospace;font-weight:700;color:var(--fg);backgroun
 #noise-bar-name{font-size:7px;letter-spacing:3px;color:var(--fg)}
 #noise-bar-hint{font-size:6px;letter-spacing:1px;color:var(--fg3);font-weight:400}
 .viz-wrap{position:relative;height:72px;background:var(--bg2);border:1px solid var(--border);overflow:hidden;margin-bottom:12px}
-#viz-canvas{display:block;width:100%;height:100%}
+#viz-canvas{display:block;width:100%;height:100%;user-select:none;-webkit-user-select:none;touch-action:none}
 /* Playhead line (file mode) */
 .redline{position:absolute;top:0;bottom:0;width:1.5px;background:var(--red);left:0;pointer-events:none}
-/* Noise scrub line (noise mode) — draggable */
-#noise-line{position:absolute;top:0;bottom:0;width:2px;background:var(--red);left:0;cursor:ew-resize;touch-action:none;display:none}
-#noise-line::after{content:'';position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:16px;height:16px}
+/* Noise scrub line (noise mode) — draggable, wide invisible hit area */
+#noise-line{position:absolute;top:0;bottom:0;width:2px;background:var(--red);left:0;cursor:ew-resize;touch-action:none;display:none;z-index:2}
+/* Wide invisible hit area around the line */
+#noise-line::before{content:'';position:absolute;top:0;bottom:0;left:-18px;right:-18px;}
 
 /* SCALE */
 .scale-card{border:1px solid var(--border);padding:8px 10px;margin-bottom:10px}
@@ -157,7 +158,7 @@ input[type=range]::-moz-range-track{height:3px;background:var(--border)}
 .piano-oarrow:active{border-color:var(--fg2);color:var(--fg)}
 
 .piano-area{flex:1;position:relative;overflow:hidden;background:var(--bg)}
-#piano-canvas{display:block;width:100%;height:100%;touch-action:none}
+#piano-canvas{display:block;width:100%;height:100%;touch-action:none;user-select:none;-webkit-user-select:none}
 </style>
 </head>
 <body>
@@ -570,10 +571,11 @@ function getFilePlayhead(){
 // ── NOISE VIZ DRAG ──
 function setupNoiseDrag(){
   const line=document.getElementById('noise-line');
+  const wrap=document.getElementById('viz-wrap');
   let dragging=false;
 
   function setFromX(clientX){
-    const rect=document.getElementById('viz-wrap').getBoundingClientRect();
+    const rect=wrap.getBoundingClientRect();
     const pct=Math.max(0,Math.min(1,(clientX-rect.left)/rect.width));
     noisePos=pct;
     line.style.left=(pct*100).toFixed(2)+'%';
@@ -581,15 +583,36 @@ function setupNoiseDrag(){
     updateNoiseDots();
   }
 
-  line.addEventListener('touchstart',e=>{e.preventDefault();dragging=true;},{ passive:false});
-  document.addEventListener('touchmove',e=>{if(dragging){e.preventDefault();setFromX(e.touches[0].clientX);}},{passive:false});
-  document.addEventListener('touchend',()=>{dragging=false;});
+  // Prevent text selection while dragging
+  wrap.addEventListener('selectstart',e=>e.preventDefault());
+  document.addEventListener('selectstart',e=>{if(dragging)e.preventDefault();});
 
-  // Also allow clicking anywhere in viz-wrap when noise mode
-  const wrap=document.getElementById('viz-wrap');
-  wrap.addEventListener('mousedown',e=>{if(currentSource==='noise'){setFromX(e.clientX);dragging=true;}});
-  document.addEventListener('mousemove',e=>{if(dragging&&currentSource==='noise')setFromX(e.clientX);});
-  document.addEventListener('mouseup',()=>{dragging=false;});
+  // Use pointer events on the line (wide hit area via ::before)
+  line.addEventListener('pointerdown',e=>{
+    e.preventDefault();
+    line.setPointerCapture(e.pointerId);
+    dragging=true;
+    setFromX(e.clientX);
+  });
+  line.addEventListener('pointermove',e=>{
+    if(dragging){e.preventDefault();setFromX(e.clientX);}
+  });
+  line.addEventListener('pointerup',()=>{dragging=false;});
+  line.addEventListener('pointercancel',()=>{dragging=false;});
+
+  // Also allow tapping/dragging anywhere in viz-wrap in noise mode
+  wrap.addEventListener('pointerdown',e=>{
+    if(currentSource!=='noise') return;
+    e.preventDefault();
+    wrap.setPointerCapture(e.pointerId);
+    dragging=true;
+    setFromX(e.clientX);
+  });
+  wrap.addEventListener('pointermove',e=>{
+    if(dragging&&currentSource==='noise'){e.preventDefault();setFromX(e.clientX);}
+  });
+  wrap.addEventListener('pointerup',()=>{dragging=false;});
+  wrap.addEventListener('pointercancel',()=>{dragging=false;});
 }
 
 // ── KS ──
