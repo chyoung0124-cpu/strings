@@ -1010,11 +1010,17 @@ function buildPianoKeys(){
   }
 }
 
+let activeKeyFreq=null; // use freq for comparison, not object reference
+
 function drawPiano(){
   if(!pianoCanvas)return;
   const wrap=pianoCanvas.parentElement;
-  pianoCanvas.width=wrap.offsetWidth;
-  pianoCanvas.height=wrap.offsetHeight;
+  const newW=wrap.offsetWidth, newH=wrap.offsetHeight;
+  // Only resize if dimensions changed — resizing clears canvas and resets context
+  if(pianoCanvas.width!==newW||pianoCanvas.height!==newH){
+    pianoCanvas.width=newW;
+    pianoCanvas.height=newH;
+  }
   buildPianoKeys();
 
   const ctx=pianoCtx;
@@ -1027,7 +1033,7 @@ function drawPiano(){
   if(isChromatic){
     // Draw white keys first
     for(const k of pianoKeys.filter(k=>!k.isBlack)){
-      const isActive=activeKey===k;
+      const isActive=(activeKeyFreq!==null&&Math.abs(k.freq-activeKeyFreq)<0.01);
       let fill=k.inScale?'#ccc0a8':'#48443c';
       if(k.isRoot&&k.inScale) fill='#e0d4bc';
       if(isActive) fill='#c03828';
@@ -1046,7 +1052,7 @@ function drawPiano(){
     }
     // Draw black keys on top
     for(const k of pianoKeys.filter(k=>k.isBlack)){
-      const isActive=activeKey===k;
+      const isActive=(activeKeyFreq!==null&&Math.abs(k.freq-activeKeyFreq)<0.01);
       let fill=k.inScale?'#5a5448':'#302c26';
       if(isActive) fill='#c03828';
       ctx.fillStyle=fill;
@@ -1057,7 +1063,7 @@ function drawPiano(){
   } else {
     // Single-row scale keys
     for(const k of pianoKeys){
-      const isActive=activeKey===k;
+      const isActive=(activeKeyFreq!==null&&Math.abs(k.freq-activeKeyFreq)<0.01);
       let fill=k.isRoot?'#ccc0a8':'#5a5448';
       if(isActive) fill='#c03828';
       ctx.fillStyle=fill;
@@ -1102,13 +1108,13 @@ function onPianoPointerDown(e){
   const k=keyFromPoint(px,py);
   if(k){
     if(activeKeyTimeout){clearTimeout(activeKeyTimeout);activeKeyTimeout=null;}
-    activeKey=k;
+    activeKeyFreq=k.freq;
     getActx();ksPluck(k.freq);
     drawPiano();
   }
 }
 function onPianoPointerUp(e){
-  activeKeyTimeout=setTimeout(()=>{activeKey=null;drawPiano();activeKeyTimeout=null;},150);
+  activeKeyTimeout=setTimeout(()=>{activeKeyFreq=null;drawPiano();activeKeyTimeout=null;},150);
 }
 
 function changePianoOctave(d){
