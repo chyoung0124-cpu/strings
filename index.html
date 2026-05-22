@@ -136,25 +136,25 @@ input[type=range]::-moz-range-track{height:3px;background:var(--border)}
 }
 
 .piano-hdr{
-  display:flex;align-items:center;gap:8px;
-  padding:6px 12px;border-bottom:1px solid var(--border);
+  display:flex;align-items:center;gap:10px;
+  padding:10px 16px;border-bottom:1px solid var(--border);
   flex-shrink:0;
 }
 .piano-hdr-title{font-size:9px;letter-spacing:4px;color:var(--fg2)}
 .piano-scale-nav{display:flex;align-items:center;gap:6px;margin-left:auto}
-.piano-sarrow{font-family:inherit;font-weight:700;font-size:10px;width:22px;height:22px;background:transparent;border:1px solid var(--border);color:var(--fg2);cursor:pointer;display:flex;align-items:center;justify-content:center}
+.piano-sarrow{font-family:inherit;font-weight:700;font-size:12px;width:32px;height:32px;background:transparent;border:1px solid var(--border);color:var(--fg2);cursor:pointer;display:flex;align-items:center;justify-content:center}
 .piano-sarrow:active{border-color:var(--fg2);color:var(--fg)}
-#piano-scale-name{font-size:8px;letter-spacing:2px;color:var(--fg);min-width:100px;text-align:center}
-.piano-root-nav{display:flex;align-items:center;gap:4px}
+#piano-scale-name{font-size:9px;letter-spacing:2px;color:var(--fg);min-width:110px;text-align:center}
+.piano-root-nav{display:flex;align-items:center;gap:5px}
 .piano-root-label{font-size:7px;letter-spacing:1px;color:var(--fg3)}
-#piano-root-name{font-size:8px;letter-spacing:2px;color:var(--fg);min-width:30px;text-align:center}
-.piano-rarrow{font-family:inherit;font-weight:700;font-size:10px;width:22px;height:22px;background:transparent;border:1px solid var(--border);color:var(--fg2);cursor:pointer;display:flex;align-items:center;justify-content:center}
+#piano-root-name{font-size:9px;letter-spacing:2px;color:var(--fg);min-width:32px;text-align:center}
+.piano-rarrow{font-family:inherit;font-weight:700;font-size:12px;width:32px;height:32px;background:transparent;border:1px solid var(--border);color:var(--fg2);cursor:pointer;display:flex;align-items:center;justify-content:center}
 .piano-rarrow:active{border-color:var(--fg2);color:var(--fg)}
 
-.piano-oct-nav{display:flex;align-items:center;gap:4px}
+.piano-oct-nav{display:flex;align-items:center;gap:5px}
 .piano-oct-label{font-size:7px;letter-spacing:1px;color:var(--fg3)}
-#piano-oct-name{font-size:8px;letter-spacing:2px;color:var(--fg);min-width:24px;text-align:center}
-.piano-oarrow{font-family:inherit;font-weight:700;font-size:10px;width:22px;height:22px;background:transparent;border:1px solid var(--border);color:var(--fg2);cursor:pointer;display:flex;align-items:center;justify-content:center}
+#piano-oct-name{font-size:9px;letter-spacing:2px;color:var(--fg);min-width:26px;text-align:center}
+.piano-oarrow{font-family:inherit;font-weight:700;font-size:12px;width:32px;height:32px;background:transparent;border:1px solid var(--border);color:var(--fg2);cursor:pointer;display:flex;align-items:center;justify-content:center}
 .piano-oarrow:active{border-color:var(--fg2);color:var(--fg)}
 
 .piano-area{flex:1;position:relative;overflow:hidden;background:var(--bg)}
@@ -219,7 +219,7 @@ input[type=range]::-moz-range-track{height:3px;background:var(--border)}
   <div id="file-sec">
     <div class="file-row">
       <label class="flabel" for="file-input">LOAD FILE</label>
-      <input type="file" id="file-input" accept="audio/*">
+      <input type="file" id="file-input" accept="audio/*,.mp3,.wav,.aiff,.aif,.m4a,.ogg,.flac,.caf">
       <span class="fname" id="fname">NO FILE LOADED</span>
     </div>
   </div>
@@ -369,11 +369,11 @@ function buildFreqTable(){
 
 function changeScale(d){
   scaleIdx=(scaleIdx+d+SCALES.length)%SCALES.length;
-  document.getElementById('scale-name').textContent=SCALES[scaleIdx].name;
+  const name=SCALES[scaleIdx].name;
+  document.getElementById('scale-name').textContent=name;
+  document.getElementById('piano-scale-name').textContent=name;
   renderScaleDots();
   xMemory=[];xPhase=0;
-  log('SCALE: '+SCALES[scaleIdx].name);
-  document.getElementById('piano-scale-name').textContent=SCALES[scaleIdx].name;
   drawPiano();
 }
 
@@ -1140,7 +1140,7 @@ function buildPianoKeys(){
   }
 }
 
-let activeKeyFreq=null; // use freq for comparison, not object reference
+let activeKeyFreqs=new Set(); // multi-touch support
 
 function drawPiano(){
   if(!pianoCanvas)return;
@@ -1163,7 +1163,7 @@ function drawPiano(){
   if(isChromatic){
     // Draw white keys first
     for(const k of pianoKeys.filter(k=>!k.isBlack)){
-      const isActive=(activeKeyFreq!==null&&Math.abs(k.freq-activeKeyFreq)<0.01);
+      const isActive=(activeKeyFreqs.has(Math.round(k.freq*100)));
       let fill=k.inScale?'#ccc0a8':'#48443c';
       if(k.isRoot&&k.inScale) fill='#e0d4bc';
       if(isActive) fill='#7a7060'; // light key pressed → noticeably darker
@@ -1181,7 +1181,7 @@ function drawPiano(){
     }
     // Draw black keys on top
     for(const k of pianoKeys.filter(k=>k.isBlack)){
-      const isActive=(activeKeyFreq!==null&&Math.abs(k.freq-activeKeyFreq)<0.01);
+      const isActive=(activeKeyFreqs.has(Math.round(k.freq*100)));
       let fill=k.inScale?'#5a5448':'#302c26';
       if(isActive) fill='#8a8070'; // dark key pressed → noticeably lighter
       ctx.fillStyle=fill;
@@ -1192,7 +1192,7 @@ function drawPiano(){
   } else {
     // Single-row scale keys
     for(const k of pianoKeys){
-      const isActive=(activeKeyFreq!==null&&Math.abs(k.freq-activeKeyFreq)<0.01);
+      const isActive=(activeKeyFreqs.has(Math.round(k.freq*100)));
       let fill=k.isRoot?'#ccc0a8':'#5a5448';
       // root (light) → darker, others (dark) → lighter
       if(isActive) fill=k.isRoot?'#7a7060':'#9a8e7c';
@@ -1238,13 +1238,17 @@ function onPianoPointerDown(e){
   const k=keyFromPoint(px,py);
   if(k){
     if(activeKeyTimeout){clearTimeout(activeKeyTimeout);activeKeyTimeout=null;}
-    activeKeyFreq=k.freq;
+    activeKeyFreqs.add(Math.round(k.freq*100));
     getActx();ksPluck(k.freq);
     drawPiano();
   }
 }
 function onPianoPointerUp(e){
-  activeKeyTimeout=setTimeout(()=>{activeKeyFreq=null;drawPiano();activeKeyTimeout=null;},150);
+  activeKeyTimeout=setTimeout(()=>{
+    activeKeyFreqs.clear();
+    drawPiano();
+    activeKeyTimeout=null;
+  },150);
 }
 
 function changePianoOctave(d){
