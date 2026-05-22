@@ -150,8 +150,14 @@ input[type=range]::-moz-range-track{height:3px;background:var(--border)}
 .piano-rarrow{font-family:inherit;font-weight:700;font-size:10px;width:22px;height:22px;background:transparent;border:1px solid var(--border);color:var(--fg2);cursor:pointer;display:flex;align-items:center;justify-content:center}
 .piano-rarrow:active{border-color:var(--fg2);color:var(--fg)}
 
+.piano-oct-nav{display:flex;align-items:center;gap:4px}
+.piano-oct-label{font-size:7px;letter-spacing:1px;color:var(--fg3)}
+#piano-oct-name{font-size:8px;letter-spacing:2px;color:var(--fg);min-width:24px;text-align:center}
+.piano-oarrow{font-family:inherit;font-weight:700;font-size:10px;width:22px;height:22px;background:transparent;border:1px solid var(--border);color:var(--fg2);cursor:pointer;display:flex;align-items:center;justify-content:center}
+.piano-oarrow:active{border-color:var(--fg2);color:var(--fg)}
+
 .piano-area{flex:1;position:relative;overflow:hidden;background:var(--bg)}
-#piano-canvas{display:block;width:100%;height:100%}
+#piano-canvas{display:block;width:100%;height:100%;touch-action:none}
 </style>
 </head>
 <body>
@@ -167,6 +173,12 @@ input[type=range]::-moz-range-track{height:3px;background:var(--border)}
 <div id="piano-overlay">
   <div class="piano-hdr">
     <div class="piano-hdr-title">STRINGS // PIANO</div>
+    <div class="piano-oct-nav">
+      <div class="piano-oct-label">OCT</div>
+      <button class="piano-oarrow" onclick="changePianoOctave(-1)">&#9668;</button>
+      <span id="piano-oct-name">2</span>
+      <button class="piano-oarrow" onclick="changePianoOctave(+1)">&#9658;</button>
+    </div>
     <div class="piano-root-nav">
       <div class="piano-root-label">ROOT</div>
       <button class="piano-rarrow" onclick="changePianoRoot(-1)">&#9668;</button>
@@ -907,17 +919,19 @@ function log(msg){
 
 // ─── PIANO ───
 let pianoRootNote=9;
+let pianoOctave=2; // base octave (1-4)
 let pianoCanvas, pianoCtx;
 let pianoKeys=[];
 let activeKey=null;
+let activeKeyTimeout=null;
 
 function setupPiano(){
   pianoCanvas=document.getElementById('piano-canvas');
   pianoCtx=pianoCanvas.getContext('2d');
-  pianoCanvas.addEventListener('touchstart',onPianoTouch,{passive:false});
-  pianoCanvas.addEventListener('touchend',onPianoTouchEnd,{passive:false});
-  pianoCanvas.addEventListener('mousedown',onPianoMouse);
-  pianoCanvas.addEventListener('mouseup',onPianoMouseUp);
+  // Use pointer events — works in all contexts incl. Claude Code webview
+  pianoCanvas.addEventListener('pointerdown',onPianoPointerDown);
+  pianoCanvas.addEventListener('pointerup',onPianoPointerUp);
+  pianoCanvas.addEventListener('pointercancel',onPianoPointerUp);
   window.addEventListener('resize',drawPiano);
   drawPiano();
 }
@@ -927,7 +941,8 @@ const WHITE_PATTERN=[0,2,4,5,7,9,11];
 function buildPianoKeys(){
   const w=pianoCanvas.width, h=pianoCanvas.height;
   const sc=SCALES[scaleIdx].i;
-  const baseHz=55*Math.pow(2,rootNote/12);
+  // Base Hz: A at chosen octave. A1=55, A2=110, A3=220, A4=440
+  const baseHz=55*Math.pow(2,(pianoOctave-1))*Math.pow(2,rootNote/12);
   pianoKeys=[];
 
   const isChromatic=(scaleIdx===0);
@@ -988,7 +1003,7 @@ function buildPianoKeys(){
         x:i*kw, y:0, w:kw-1, h:h-1,
         freq:note.freq, noteName:note.noteName,
         isBlack:false, isRoot:note.isRoot, inScale:true,
-        showOctave:note.isRoot, octaveNum:note.oct+2,
+        showOctave:note.isRoot, octaveNum:note.oct+pianoOctave,
         semi:note.iv, oct:note.oct
       });
     });
@@ -1079,13 +1094,11 @@ function keyFromPoint(px,py){
   return null;
 }
 
-let activeKeyTimeout=null;
-
-function onPianoTouch(e){
+function onPianoPointerDown(e){
   e.preventDefault();
+  pianoCanvas.setPointerCapture(e.pointerId);
   const rect=pianoCanvas.getBoundingClientRect();
-  const t=e.touches[0];
-  const px=t.clientX-rect.left,py=t.clientY-rect.top;
+  const px=e.clientX-rect.left, py=e.clientY-rect.top;
   const k=keyFromPoint(px,py);
   if(k){
     if(activeKeyTimeout){clearTimeout(activeKeyTimeout);activeKeyTimeout=null;}
@@ -1094,23 +1107,14 @@ function onPianoTouch(e){
     drawPiano();
   }
 }
-function onPianoTouchEnd(e){
-  // Keep highlight visible for 120ms after release
-  activeKeyTimeout=setTimeout(()=>{activeKey=null;drawPiano();activeKeyTimeout=null;},120);
+function onPianoPointerUp(e){
+  activeKeyTimeout=setTimeout(()=>{activeKey=null;drawPiano();activeKeyTimeout=null;},150);
 }
-function onPianoMouse(e){
-  const rect=pianoCanvas.getBoundingClientRect();
-  const px=e.clientX-rect.left,py=e.clientY-rect.top;
-  const k=keyFromPoint(px,py);
-  if(k){
-    if(activeKeyTimeout){clearTimeout(activeKeyTimeout);activeKeyTimeout=null;}
-    activeKey=k;
-    getActx();ksPluck(k.freq);
-    drawPiano();
-  }
-}
-function onPianoMouseUp(){
-  activeKeyTimeout=setTimeout(()=>{activeKey=null;drawPiano();activeKeyTimeout=null;},120);
+
+function changePianoOctave(d){
+  pianoOctave=Math.max(1,Math.min(5,pianoOctave+d));
+  document.getElementById('piano-oct-name').textContent=pianoOctave;
+  drawPiano();
 }
 
 function changePianoScale(d){
