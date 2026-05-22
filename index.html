@@ -199,9 +199,7 @@ input[type=range]::-moz-range-track{height:3px;background:var(--border)}
 
 <div id="app">
   <div class="hdr">
-    <div class="hdr-eye">KS·MRB // DIAGNOSTIC</div>
     <div class="hdr-title">STRINGS</div>
-    <div class="hdr-sub">KARPLUS-STRONG // MARBLES SEQ</div>
   </div>
 
   <div class="tags">
@@ -213,8 +211,8 @@ input[type=range]::-moz-range-track{height:3px;background:var(--border)}
   </div>
 
   <div class="row2">
-    <button class="sbtn on" id="src-file-btn" onclick="setSource('file')">FILE</button>
-    <button class="sbtn" id="src-noise-btn" onclick="setSource('noise')">NOISE OSC</button>
+    <button class="sbtn on" id="src-noise-btn" onclick="setSource('noise')">NOISE OSC</button>
+    <button class="sbtn" id="src-file-btn" onclick="setSource('file')">FILE</button>
   </div>
 
   <!-- FILE -->
@@ -318,7 +316,6 @@ input[type=range]::-moz-range-track{height:3px;background:var(--border)}
     </div>
   </div>
 
-  <div class="log-card"><div id="logEl"></div></div>
 </div>
 
 <script>
@@ -1059,17 +1056,16 @@ function drawPiano(){
       const isActive=(activeKeyFreq!==null&&Math.abs(k.freq-activeKeyFreq)<0.01);
       let fill=k.inScale?'#ccc0a8':'#48443c';
       if(k.isRoot&&k.inScale) fill='#e0d4bc';
-      if(isActive) fill='#c03828';
+      if(isActive) fill='#7a7060'; // light key pressed → noticeably darker
       ctx.fillStyle=fill;
       ctx.fillRect(k.x,k.y,k.w,k.h);
       ctx.strokeStyle='#28241e';ctx.lineWidth=1;
       ctx.strokeRect(k.x+0.5,k.y+0.5,k.w,k.h);
-      // Note label
       const fs=Math.min(9,k.w*0.42);
       if(fs>=6){
         ctx.font=`bold ${fs}px 'Kode Mono',monospace`;
         ctx.textAlign='center';
-        ctx.fillStyle=isActive?'rgba(255,255,255,0.9)':k.inScale?'#48443c':'#3a362e';
+        ctx.fillStyle=isActive?'#ccc0a8':k.inScale?'#48443c':'#3a362e';
         ctx.fillText(k.noteName, k.x+k.w/2+0.5, k.h-6);
       }
     }
@@ -1077,7 +1073,7 @@ function drawPiano(){
     for(const k of pianoKeys.filter(k=>k.isBlack)){
       const isActive=(activeKeyFreq!==null&&Math.abs(k.freq-activeKeyFreq)<0.01);
       let fill=k.inScale?'#5a5448':'#302c26';
-      if(isActive) fill='#c03828';
+      if(isActive) fill='#8a8070'; // dark key pressed → noticeably lighter
       ctx.fillStyle=fill;
       ctx.fillRect(k.x,k.y,k.w,k.h);
       ctx.strokeStyle='#28241e';ctx.lineWidth=1;
@@ -1088,7 +1084,8 @@ function drawPiano(){
     for(const k of pianoKeys){
       const isActive=(activeKeyFreq!==null&&Math.abs(k.freq-activeKeyFreq)<0.01);
       let fill=k.isRoot?'#ccc0a8':'#5a5448';
-      if(isActive) fill='#c03828';
+      // root (light) → darker, others (dark) → lighter
+      if(isActive) fill=k.isRoot?'#7a7060':'#9a8e7c';
       ctx.fillStyle=fill;
       ctx.fillRect(k.x,k.y,k.w,k.h);
       ctx.strokeStyle='#28241e';ctx.lineWidth=1;
@@ -1097,7 +1094,7 @@ function drawPiano(){
       if(fs>=6){
         ctx.font=`bold ${fs}px 'Kode Mono',monospace`;
         ctx.textAlign='center';
-        ctx.fillStyle=isActive?'rgba(255,255,255,0.85)':k.isRoot?'#302c26':'#ccc0a8';
+        ctx.fillStyle=isActive?(k.isRoot?'#ccc0a8':'#302c26'):k.isRoot?'#302c26':'#ccc0a8';
         const label=k.noteName+(k.showOctave?k.octaveNum:'');
         ctx.fillText(label, k.x+k.w/2+0.5, k.h-7);
       }
@@ -1182,7 +1179,7 @@ window.addEventListener('resize',()=>setTimeout(checkOrientation,100));
 // INIT
 renderScaleDots();
 renderRootDots();
-setSource('file');
+setSource('noise');
 </script>
 </body>
 </html>
