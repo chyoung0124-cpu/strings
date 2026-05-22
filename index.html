@@ -465,10 +465,10 @@ function buildGraph(){
   delayDryGain=ctx.createGain();delayDryGain.gain.value=0.70;
   delayWetGain=ctx.createGain();delayWetGain.gain.value=0.30;
   delayNode.connect(delayFeedback);delayFeedback.connect(delayNode);
-  convolver=ctx.createConvolver();
   reverbDryGain=ctx.createGain();reverbDryGain.gain.value=0.65;
   reverbWetGain=ctx.createGain();reverbWetGain.gain.value=0.35;
-  buildIR(2.5,0.5);
+  convolver=ctx.createConvolver();
+  convolver.buffer=buildIR(2.5,0.5);
   analyser=ctx.createAnalyser();analyser.fftSize=256;
   // Limiter: slower attack to let transients through but catch sustained overloads
   const lim=ctx.createDynamicsCompressor();
@@ -496,19 +496,70 @@ function buildIR(dur,damp){
       d[i]=(Math.random()*2-1)*Math.pow(1-i/len,1.5+damp)*dec;
     }
   }
-  convolver.buffer=ir;
+  return ir;
 }
 
+// Crossfade to new convolver to avoid click on IR swap
+let reverbXfadeTimer=null;
+function applyNewIR(ir){
+  const ctx=actx;
+  const newConv=ctx.createConvolver();
+  newConv.buffer=ir;
+  // New convolver gets wet signal, fade it in
+  const newGain=ctx.createGain();
+  newGain.gain.setValueAtTime(0,ctx.currentTime);
+  newGain.gain.linearRampToValueAtTime(1,ctx.currentTime+0.08);
+  masterGain.connect(newConv);
+  newConv.connect(newGain);
+  newGain.connect(reverbWetGain);
+  // Fade out old convolver
+  const oldConv=convolver;
+  const fadeOut=ctx.createGain();
+  fadeOut.gain.setValueAtTime(1,ctx.currentTime);
+  fadeOut.gain.linearRampToValueAtTime(0,ctx.currentTime+0.08);
+  // Disconnect old after fade
+  setTimeout(()=>{
+    try{oldConv.disconnect();}catch(e){}
+    try{fadeOut.disconnect();}catch(e){}
+    try{newGain.disconnect();}catch(e){}
+    // rewire newConv directly
+    newConv.connect(reverbWetGain);
+    convolver=newConv;
+  },100);
+  convolver=newConv; // update reference immediately
+}
+
+let irDebounceTimer=null;
 function syncDelay(){
   if(!graphBuilt)return;
-  delayNode.delayTime.value=gp('delay-time');
-  delayFeedback.gain.value=gp('delay-fb');
-  const m=gp('delay-mix');delayWetGain.gain.value=m;delayDryGain.gain.value=1-m;
+  const ctx=actx;
+  const now=ctx.currentTime;
+  // Ramp delay time to avoid tape-scrub artifact
+  delayNode.delayTime.cancelScheduledValues(now);
+  delayNode.delayTime.setValueAtTime(delayNode.delayTime.value,now);
+  delayNode.delayTime.linearRampToValueAtTime(gp('delay-time'),now+0.05);
+  delayFeedback.gain.setValueAtTime(delayFeedback.gain.value,now);
+  delayFeedback.gain.linearRampToValueAtTime(gp('delay-fb'),now+0.05);
+  const m=gp('delay-mix');
+  delayWetGain.gain.setValueAtTime(delayWetGain.gain.value,now);
+  delayWetGain.gain.linearRampToValueAtTime(m,now+0.05);
+  delayDryGain.gain.setValueAtTime(delayDryGain.gain.value,now);
+  delayDryGain.gain.linearRampToValueAtTime(1-m,now+0.05);
 }
+
 function syncReverb(){
   if(!graphBuilt)return;
-  const m=gp('reverb-mix');reverbWetGain.gain.value=m;reverbDryGain.gain.value=1-m;
-  buildIR(gp('reverb-size'),gp('reverb-damp'));
+  const ctx=actx,now=ctx.currentTime;
+  const m=gp('reverb-mix');
+  reverbWetGain.gain.setValueAtTime(reverbWetGain.gain.value,now);
+  reverbWetGain.gain.linearRampToValueAtTime(m,now+0.05);
+  reverbDryGain.gain.setValueAtTime(reverbDryGain.gain.value,now);
+  reverbDryGain.gain.linearRampToValueAtTime(1-m,now+0.05);
+  // Debounce IR rebuild — only rebuild 300ms after user stops dragging
+  clearTimeout(irDebounceTimer);
+  irDebounceTimer=setTimeout(()=>{
+    applyNewIR(buildIR(gp('reverb-size'),gp('reverb-damp')));
+  },300);
 }
 function gp(id){return parseFloat(document.getElementById(id).value);}
 
