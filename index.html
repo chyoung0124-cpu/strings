@@ -111,10 +111,10 @@ body{font-family:'Kode Mono',monospace;font-weight:700;color:var(--fg);backgroun
 .prow{display:flex;align-items:center;gap:3px;margin-bottom:5px;min-width:0}
 .prow:last-child{margin-bottom:0}
 .pname{font-size:6px;letter-spacing:0;color:var(--fg2);width:30px;min-width:30px;flex-shrink:0;font-weight:700}
-input[type=range]{-webkit-appearance:none;appearance:none;flex:1;height:18px;background:transparent;outline:none;cursor:pointer;min-width:0;width:0}
-input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:8px;height:18px;background:var(--fg);cursor:pointer;margin-top:-7px}
+input[type=range]{-webkit-appearance:none;appearance:none;flex:1;height:28px;background:transparent;outline:none;cursor:pointer;min-width:0;width:0}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:10px;height:28px;background:var(--fg);cursor:pointer;margin-top:-12px}
 input[type=range]::-webkit-slider-runnable-track{height:3px;background:var(--border);border-radius:0}
-input[type=range]::-moz-range-thumb{width:8px;height:18px;background:var(--fg);border:none;cursor:pointer}
+input[type=range]::-moz-range-thumb{width:10px;height:28px;background:var(--fg);border:none;cursor:pointer}
 input[type=range]::-moz-range-track{height:3px;background:var(--border)}
 .pval{font-size:6px;color:var(--fg);width:26px;min-width:26px;text-align:right;flex-shrink:0;letter-spacing:0}
 .col2{display:grid;grid-template-columns:1fr 1fr;gap:5px;margin-bottom:6px}
@@ -295,7 +295,7 @@ input[type=range]::-moz-range-track{height:3px;background:var(--border)}
   <!-- STRING -->
   <div class="panel">
     <div class="panel-top">STRING</div>
-    <div class="prow"><span class="pname">DAMP</span><input type="range" id="damping" min="0.990" max="0.9999" step="0.0001" value="0.9990"><span class="pval" id="damping-v">0.9990</span></div>
+    <div class="prow"><span class="pname">DAMP</span><input type="range" id="damping" min="0.950" max="0.9999" step="0.0001" value="0.9900"><span class="pval" id="damping-v">0.9900</span></div>
     <div class="prow"><span class="pname">EXCITE</span><input type="range" id="excite-len" min="0.01" max="1.0" step="0.01" value="0.08"><span class="pval" id="excite-len-v">0.08s</span></div>
     <div class="prow"><span class="pname">GAIN</span><input type="range" id="gain" min="0.1" max="2.0" step="0.05" value="1.0"><span class="pval" id="gain-v">1.00</span></div>
   </div>
@@ -323,22 +323,34 @@ input[type=range]::-moz-range-track{height:3px;background:var(--border)}
 const NOTE_NAMES=['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
 const SCALES=[
   {name:'CHROMATIC',       i:[0,1,2,3,4,5,6,7,8,9,10,11]},
-  {name:'IONIAN',          i:[0,2,4,5,7,9,11]},
+  {name:'MAJOR',           i:[0,2,4,5,7,9,11]},
+  {name:'MINOR',           i:[0,2,3,5,7,8,10]},
+  {name:'HARM MINOR',      i:[0,2,3,5,7,8,11]},
+  {name:'MELO MINOR',      i:[0,2,3,5,7,9,11]},
   {name:'DORIAN',          i:[0,2,3,5,7,9,10]},
   {name:'PHRYGIAN',        i:[0,1,3,5,7,8,10]},
   {name:'LYDIAN',          i:[0,2,4,6,7,9,11]},
   {name:'MIXOLYDIAN',      i:[0,2,4,5,7,9,10]},
-  {name:'AEOLIAN',         i:[0,2,3,5,7,8,10]},
   {name:'LOCRIAN',         i:[0,1,3,5,6,8,10]},
-  {name:'HARM MINOR',      i:[0,2,3,5,7,8,11]},
-  {name:'MELO MINOR',      i:[0,2,3,5,7,9,11]},
-  {name:'MIN PENTA',       i:[0,3,5,7,10]},
   {name:'MAJ PENTA',       i:[0,2,4,7,9]},
-  {name:'MIN BLUES',       i:[0,3,5,6,7,10]},
+  {name:'MIN PENTA',       i:[0,3,5,7,10]},
   {name:'MAJ BLUES',       i:[0,2,3,4,7,9]},
+  {name:'MIN BLUES',       i:[0,3,5,6,7,10]},
   {name:'WHOLE TONE',      i:[0,2,4,6,8,10]},
   {name:'DIMINISHED',      i:[0,2,3,5,6,8,9,11]},
   {name:'AUGMENTED',       i:[0,3,4,7,8,11]},
+  // 日本
+  {name:'HIRAJOSHI',       i:[0,2,3,7,8]},
+  {name:'IN',              i:[0,1,5,7,8]},
+  {name:'INSEN',           i:[0,1,5,7,10]},
+  {name:'IWATO',           i:[0,1,5,6,10]},
+  {name:'YO',              i:[0,2,5,7,9]},
+  // 中東
+  {name:'PHRYGIAN DOM',    i:[0,1,4,5,7,8,10]},
+  {name:'DOUBLE HARM',     i:[0,1,4,5,7,8,11]},
+  {name:'HIJAZ',           i:[0,1,4,5,7,8,10]},
+  {name:'ARABIC',          i:[0,2,4,5,6,8,10]},
+  {name:'PERSIAN',         i:[0,1,4,5,6,8,11]},
 ];
 let scaleIdx=0;
 let rootNote=9; // A
@@ -854,10 +866,10 @@ let ledGrid=null; // Float32Array of GRID_COLS*GRID_ROWS brightness values
 // flicker: per-frame probability a cell re-rolls (lowered for natural feel)
 // cluster: whether nearby cells influence each other (0=none,1=strong)
 const NOISE_LED={
-  // WHITE  PINK   BROWN  GREY   BLUE   VIOLET
-  density:[0.50,  0.35,  0.20,  0.42,  0.65,  0.80],
-  flicker:[0.55,  0.32,  0.08,  0.28,  0.50,  0.70],
-  cluster:[0.00,  0.20,  0.60,  0.05,  0.10,  0.00],
+  // BROWN  PINK   GREY   WHITE  BLUE   VIOLET
+  density:[0.20,  0.35,  0.42,  0.50,  0.65,  0.80],
+  flicker:[0.08,  0.32,  0.28,  0.55,  0.50,  0.70],
+  cluster:[0.60,  0.20,  0.05,  0.00,  0.10,  0.00],
 };
 
 function initLedGrid(){
@@ -1037,7 +1049,7 @@ function log(msg){
 
 // ─── PIANO ───
 let pianoRootNote=9;
-let pianoOctave=2; // base octave (1-4)
+let pianoOctave=1; // base octave (0-4), default low for bass
 let pianoCanvas, pianoCtx;
 let pianoKeys=[];
 let activeKey=null;
@@ -1236,17 +1248,17 @@ function onPianoPointerUp(e){
 }
 
 function changePianoOctave(d){
-  pianoOctave=Math.max(1,Math.min(5,pianoOctave+d));
+  pianoOctave=Math.max(0,Math.min(5,pianoOctave+d));
   document.getElementById('piano-oct-name').textContent=pianoOctave;
   drawPiano();
 }
 
 function changePianoScale(d){
   scaleIdx=(scaleIdx+d+SCALES.length)%SCALES.length;
-  document.getElementById('scale-name').textContent=SCALES[scaleIdx].name;
-  document.getElementById('piano-scale-name').textContent=SCALES[scaleIdx].name;
+  const name=SCALES[scaleIdx].name;
+  document.getElementById('scale-name').textContent=name;
+  document.getElementById('piano-scale-name').textContent=name;
   renderScaleDots();xMemory=[];xPhase=0;
-  log('SCALE: '+SCALES[scaleIdx].name);
   drawPiano();
 }
 function changePianoRoot(d){
