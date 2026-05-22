@@ -459,7 +459,7 @@ function getActx(){
 
 function buildGraph(){
   const ctx=actx;
-  masterGain=ctx.createGain();masterGain.gain.value=0.5;
+  masterGain=ctx.createGain();masterGain.gain.value=0.35;
   delayNode=ctx.createDelay(2.0);delayNode.delayTime.value=0.36;
   delayFeedback=ctx.createGain();delayFeedback.gain.value=0.40;
   delayDryGain=ctx.createGain();delayDryGain.gain.value=0.70;
@@ -470,9 +470,13 @@ function buildGraph(){
   reverbWetGain=ctx.createGain();reverbWetGain.gain.value=0.35;
   buildIR(2.5,0.5);
   analyser=ctx.createAnalyser();analyser.fftSize=256;
+  // Limiter: slower attack to let transients through but catch sustained overloads
   const lim=ctx.createDynamicsCompressor();
-  lim.threshold.value=-6;lim.knee.value=3;lim.ratio.value=20;
-  lim.attack.value=0.001;lim.release.value=0.1;
+  lim.threshold.value=-3;
+  lim.knee.value=6;
+  lim.ratio.value=20;
+  lim.attack.value=0.003;
+  lim.release.value=0.25;
   masterGain.connect(delayDryGain);masterGain.connect(delayNode);
   delayDryGain.connect(reverbDryGain);
   delayNode.connect(delayWetGain);delayWetGain.connect(reverbWetGain);
@@ -638,26 +642,51 @@ function ksPluck(freq){
   const delayLen=Math.round(sr/freq);
   if(delayLen<2)return;
   const exciteSamples=Math.round(sr*gp('excite-len'));
-  const decayLoops=Math.ceil(Math.log(0.001)/Math.log(gp('damping')));
-  const totalLen=exciteSamples+delayLen*Math.min(decayLoops,6000);
+  const damp=gp('damping');
+  const decayLoops=Math.ceil(Math.log(0.001)/Math.log(damp));
+  const bodyLen=exciteSamples+delayLen*Math.min(decayLoops,6000);
+  // Add short fade-out tail to prevent hard-click at buffer end
+  const fadeLen=Math.min(512,Math.floor(sr*0.01));
+  const totalLen=bodyLen+fadeLen;
+
   const excite=getExcite(exciteSamples);
-  let pk=0;for(let i=0;i<exciteSamples;i++)if(Math.abs(excite[i])>pk)pk=Math.abs(excite[i]);
-  if(pk>0.01)for(let i=0;i<exciteSamples;i++)excite[i]=excite[i]/pk*0.8;
-  const damp=gp('damping'),gainVal=gp('gain');
+  // Normalize excite to fixed level regardless of source
+  let pk=0;
+  for(let i=0;i<exciteSamples;i++) if(Math.abs(excite[i])>pk) pk=Math.abs(excite[i]);
+  if(pk>0.001) for(let i=0;i<exciteSamples;i++) excite[i]=excite[i]/pk*0.7;
+
+  // KS loop — gain applied AFTER loop, not inside, to prevent feedback buildup
   const out=new Float32Array(totalLen);
   const ring=new Float32Array(delayLen);
   let wp=0;
-  for(let i=0;i<totalLen;i++){
+  for(let i=0;i<bodyLen;i++){
     const ex=i<exciteSamples?excite[i]:0;
     const rp=(wp+1)%delayLen;
     const ks=(ring[wp]+ring[rp])*0.5*damp;
-    const s=ex+ks;out[i]=s*gainVal;
-    ring[wp]=s;wp=(wp+1)%delayLen;
+    const s=ex+ks;
+    out[i]=s;
+    ring[wp]=s; wp=(wp+1)%delayLen;
   }
+
+  // Normalize output peak then apply gain — prevents any single note from clipping
+  let outPk=0;
+  for(let i=0;i<bodyLen;i++) if(Math.abs(out[i])>outPk) outPk=Math.abs(out[i]);
+  const gainVal=gp('gain');
+  const scale=outPk>0.001?(gainVal/outPk)*0.85:gainVal;
+  for(let i=0;i<bodyLen;i++) out[i]*=scale;
+
+  // Fade out tail
+  for(let i=0;i<fadeLen;i++){
+    const t=1-(i/fadeLen);
+    out[bodyLen+i]=out[bodyLen-1]*t*t; // smooth to zero
+  }
+
   const ob=ctx.createBuffer(1,totalLen,sr);
   ob.copyToChannel(out,0);
   const src=ctx.createBufferSource();
-  src.buffer=ob;src.connect(masterGain);src.start();
+  src.buffer=ob;
+  src.connect(masterGain);
+  src.start();
 }
 
 // ── MARBLES ──
