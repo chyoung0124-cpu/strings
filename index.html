@@ -390,10 +390,10 @@ function renderRootDots(){
 
 // ── NOISE ──
 const NOISE_TYPES=[
-  {name:'WHITE',    hint:'FLAT SPECTRUM',        exp:0},
-  {name:'PINK',     hint:'-3dB / OCTAVE',        exp:-1},
   {name:'BROWN',    hint:'-6dB / OCTAVE',        exp:-2},
+  {name:'PINK',     hint:'-3dB / OCTAVE',        exp:-1},
   {name:'GREY',     hint:'EQUAL LOUDNESS',       exp:-0.5},
+  {name:'WHITE',    hint:'FLAT SPECTRUM',        exp:0},
   {name:'BLUE',     hint:'+3dB / OCTAVE',        exp:1},
   {name:'VIOLET',   hint:'+6dB / OCTAVE',        exp:2},
 ];
@@ -409,25 +409,43 @@ function updateNoiseLabels(){
 function generateNoise(samples){
   const buf=new Float32Array(samples);
   const t=NOISE_TYPES.length-1;
-  const rawIdx=noisePos*(NOISE_TYPES.length-1);
-  const idx=Math.min(t,Math.floor(rawIdx));
+  const rawIdx=noisePos*t;
+  const idx=Math.min(t-1,Math.floor(rawIdx));
   const frac=rawIdx-Math.floor(rawIdx);
-  const expA=NOISE_TYPES[Math.min(t,idx)].exp;
-  const expB=NOISE_TYPES[Math.min(t,Math.min(t,idx+1))].exp;
+  const expA=NOISE_TYPES[idx].exp;
+  const expB=NOISE_TYPES[Math.min(t,idx+1)].exp;
   const exp=expA+(expB-expA)*frac;
+
   for(let i=0;i<samples;i++) buf[i]=Math.random()*2-1;
-  if(Math.abs(exp)<0.05) return buf;
-  const alpha=exp<0?0.98:0.1;
-  const passes=Math.round(Math.abs(exp));
-  for(let p=0;p<passes;p++){
-    if(exp<0){
-      let acc=0;
-      for(let i=0;i<samples;i++){acc=acc*alpha+buf[i]*(1-alpha);buf[i]=acc;}
-    } else {
-      let prev=0;
-      for(let i=0;i<samples;i++){const d=buf[i]-prev;prev=buf[i];buf[i]=d;}
+  if(Math.abs(exp)<0.02) return buf;
+
+  // Use fractional mixing between integer pass counts for smooth interpolation
+  // e.g. exp=-1.6 → 60% of 2-pass + 40% of 1-pass blended
+  const absExp=Math.abs(exp);
+  const passLo=Math.floor(absExp);
+  const passHi=Math.ceil(absExp);
+  const passFrac=absExp-passLo;
+
+  function applyPasses(src, passes){
+    const out=new Float32Array(src);
+    for(let p=0;p<passes;p++){
+      if(exp<0){
+        let acc=0;
+        for(let i=0;i<samples;i++){acc=acc*0.98+out[i]*0.02;out[i]=acc;}
+      } else {
+        let prev=0;
+        for(let i=0;i<samples;i++){const d=out[i]-prev;prev=out[i];out[i]=d;}
+      }
     }
+    return out;
   }
+
+  const loResult=applyPasses(buf,passLo);
+  const hiResult=applyPasses(buf,passHi);
+  // Blend between the two
+  for(let i=0;i<samples;i++) buf[i]=loResult[i]*(1-passFrac)+hiResult[i]*passFrac;
+
+  // Normalize
   let pk=0;for(let i=0;i<samples;i++)if(Math.abs(buf[i])>pk)pk=Math.abs(buf[i]);
   if(pk>0.001)for(let i=0;i<samples;i++)buf[i]=buf[i]/pk*0.85;
   return buf;
