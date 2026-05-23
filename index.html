@@ -1012,9 +1012,10 @@ function drawLoop(ts){
       vizCtx.fillStyle='#3a3630';
       for(let x=6;x<vizW;x+=8)for(let y=6;y<vizH;y+=8)vizCtx.fillRect(x,y,1.5,1.5);
     }
-    // File playhead
-    if(audioBuffer&&fileLoopSrc){
-      const ph=getFilePlayhead();
+    // File playhead — update whenever buffer is loaded
+    if(audioBuffer&&actx&&fileLoopStartTime>0){
+      const elapsed=(actx.currentTime-fileLoopStartTime)%audioBuffer.duration;
+      const ph=elapsed/audioBuffer.duration;
       document.getElementById('redline').style.left=(ph*100).toFixed(2)+'%';
     } else {
       document.getElementById('redline').style.left='0%';
