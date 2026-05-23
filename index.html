@@ -623,7 +623,8 @@ document.getElementById('file-input').addEventListener('change',async e=>{
   }catch(err){console.error('File decode error:',err);}
 });
 
-// Continuous audio loop for file playback preview + playhead
+// Silent playhead loop — runs in background, no audio output
+// Playhead position tracked via fileLoopStartTime + actx.currentTime
 let fileLoopSrc=null;
 function startFileLoop(){
   if(!audioBuffer||!graphBuilt)return;
@@ -633,7 +634,12 @@ function startFileLoop(){
   fileLoopSrc=ctx.createBufferSource();
   fileLoopSrc.buffer=audioBuffer;
   fileLoopSrc.loop=true;
-  fileLoopSrc.connect(masterGain);
+  // Connect to a silent gain node (not masterGain) — audio never reaches output
+  // We only need the source running so actx.currentTime tracking works
+  const silentGain=ctx.createGain();
+  silentGain.gain.value=0;
+  fileLoopSrc.connect(silentGain);
+  silentGain.connect(ctx.destination);
   fileLoopSrc.start();
   fileLoopStartTime=ctx.currentTime;
   fileLoopSrc.onended=()=>{fileLoopSrc=null;};
