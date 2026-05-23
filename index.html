@@ -713,10 +713,19 @@ function getExcite(samples){
   if(currentSource==='noise') return hann(generateNoise(samples));
   if(!audioBuffer) return hann(generateNoise(samples));
   const data=audioBuffer.getChannelData(0);
-  const take=Math.min(samples,data.length-bufferOffset);
+  const sr=actx?actx.sampleRate:44100;
+  // Derive current position from silent loop's time tracking
+  let pos=0;
+  if(actx&&fileLoopSrc){
+    const elapsed=(actx.currentTime-fileLoopStartTime)%audioBuffer.duration;
+    pos=Math.floor(elapsed*sr)%data.length;
+  } else {
+    pos=bufferOffset%data.length;
+  }
   const buf=new Float32Array(samples);
-  for(let i=0;i<take;i++)buf[i]=data[bufferOffset+i];
-  bufferOffset=(bufferOffset+take)%data.length;
+  for(let i=0;i<samples;i++) buf[i]=data[(pos+i)%data.length];
+  // Advance bufferOffset for next call
+  bufferOffset=(pos+samples)%data.length;
   return hann(buf);
 }
 
